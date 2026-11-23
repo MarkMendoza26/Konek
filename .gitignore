@@ -76,3 +76,6 @@ Thumbs.db
 
 # Local SMTP credentials (copy mailer.local.php.example to mailer.local.php)
 /backend/config/mailer.local.php
+
+# CI-generated debug signing key (created on the runner, cached by Actions)
+/android/app/ci-debug.keystore

@@ -16,7 +16,25 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        // CI creates this debug keystore before building so every CI APK is
+        // signed with the same certificate; Google Sign-In's registered SHA-1
+        // must match it. Local builds without the file keep the default key.
+        if (file('ci-debug.keystore').exists()) {
+            ciDebug {
+                storeFile file('ci-debug.keystore')
+                storePassword 'android'
+                keyAlias 'androiddebugkey'
+                keyPassword 'android'
+            }
+        }
+    }
     buildTypes {
+        debug {
+            if (signingConfigs.findByName('ciDebug') != null) {
+                signingConfig signingConfigs.ciDebug
+            }
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'

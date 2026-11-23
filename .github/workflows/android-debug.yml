@@ -73,12 +73,26 @@ jobs:
 
       # A fresh runner would otherwise generate a new random debug key on every
       # build, which changes the certificate SHA-1 and breaks Google Sign-In's
-      # registered Android OAuth client. Reusing one keystore keeps it stable.
-      - name: Cache the debug signing key
+      # registered Android OAuth client. The keystore lives at a fixed path in
+      # the app module and is cached so later builds reuse the same key.
+      - name: Restore the CI debug signing key
         uses: actions/cache@v4
         with:
-          path: ~/.android/debug.keystore
-          key: android-debug-keystore-v1
+          path: android/app/ci-debug.keystore
+          key: android-ci-debug-keystore-v1
+
+      - name: Create the CI debug signing key if missing
+        run: |
+          if [ ! -f android/app/ci-debug.keystore ]; then
+            keytool -genkeypair -v \
+              -keystore android/app/ci-debug.keystore \
+              -storetype PKCS12 \
+              -storepass android \
+              -keypass android \
+              -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
 
       - name: Build debug APK
         working-directory: android
