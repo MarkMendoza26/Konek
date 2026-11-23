@@ -71,6 +71,15 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
+      # A fresh runner would otherwise generate a new random debug key on every
+      # build, which changes the certificate SHA-1 and breaks Google Sign-In's
+      # registered Android OAuth client. Reusing one keystore keeps it stable.
+      - name: Cache the debug signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: android-debug-keystore-v1
+
       - name: Build debug APK
         working-directory: android
         run: |
@@ -79,6 +88,15 @@ jobs:
 
       - name: Collect APK
         run: cp android/app/build/outputs/apk/debug/app-debug.apk "Konek-debug-${GITHUB_SHA::7}.apk"
+
+      # The certificate SHA-1 is what the Android OAuth client in Google Cloud
+      # Console must list for Google Sign-In to work on this build.
+      - name: Read signing fingerprint
+        id: signing
+        run: |
+          SHA1="$("$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs android/app/build/outputs/apk/debug/app-debug.apk | sed -n 's/^Signer #1 certificate SHA-1 digest: //p')"
+          echo "sha1=$SHA1" >> "$GITHUB_OUTPUT"
+          echo "APK signing SHA-1: \`$SHA1\`" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
@@ -99,7 +117,11 @@ jobs:
 
           ${SUBJECT}
 
-          Debug APK — tap the \`.apk\` below on your phone to install. Built by CI, so uninstall any locally built debug APK first (different signing key)."
+          Debug APK — tap the \`.apk\` below on your phone to install. Built by CI, so uninstall any locally built debug APK first (different signing key).
+
+          Signing SHA-1: \`${{ steps.signing.outputs.sha1 }}\`
+
+          Register this SHA-1 on the Android OAuth client (package \`com.konek.app\`) in Google Cloud Console for Google Sign-In."
 
           # Every build gets its own release; older releases are never modified or removed.
           if gh release view "$TAG" > /dev/null 2>&1; then

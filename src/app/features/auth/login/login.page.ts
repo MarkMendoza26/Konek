@@ -271,6 +271,11 @@ export class LoginPage implements OnInit, AfterViewInit {
     } catch (error: any) {
       await loading.dismiss();
       console.error("Google login error:", error);
+
+      if (this.isNoCredentialError(error)) {
+        void this.logSigningDiagnostics();
+      }
+
       await this.showError(this.googleErrorMessage(error));
     } finally {
       this.isLoading = false;
@@ -308,6 +313,32 @@ export class LoginPage implements OnInit, AfterViewInit {
     }
   }
 
+  private isNoCredentialError(error: any): boolean {
+    const message = String(error?.message ?? "");
+    return /no google account|no credentials|no credential available/i.test(
+      message
+    );
+  }
+
+  /**
+   * Android: Credential Manager also reports "no credentials" when this build's
+   * signing key is not registered on an Android OAuth client, so print the
+   * package name and fingerprints needed in Google Cloud Console.
+   */
+  private async logSigningDiagnostics(): Promise<void> {
+    const signing = await this.googleAuth.signingDiagnostics();
+    if (!signing) return;
+
+    console.warn(
+      "Google sign-in returned no accounts. If this device already has a " +
+        "Google account, add these values to the Android OAuth client in " +
+        "Google Cloud Console (APIs & Services > Credentials):\n" +
+        `Package name: ${signing.packageName}\n` +
+        `SHA-1:   ${signing.sha1.join(", ")}\n` +
+        `SHA-256: ${signing.sha256.join(", ")}`
+    );
+  }
+
   /** Human-readable message for the many failure shapes Google can produce. */
   private googleErrorMessage(error: any): string {
     const message = String(error?.message ?? "");
@@ -315,7 +346,7 @@ export class LoginPage implements OnInit, AfterViewInit {
       error?.name === "HttpErrorResponse" || typeof error?.status === "number";
     const cancelled =
       error?.code === "auth/user-cancelled" || /cancel/i.test(message);
-    const noCredential = /no google account|no credentials/i.test(message);
+    const noCredential = this.isNoCredentialError(error);
     const offline = isHttpError && error?.status === 0;
 
     if (cancelled) return "Google Sign-In was cancelled.";

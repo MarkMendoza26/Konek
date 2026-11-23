@@ -1,9 +1,21 @@
 ﻿import { Injectable, inject } from "@angular/core";
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, registerPlugin } from "@capacitor/core";
 import { firstValueFrom } from "rxjs";
 import { auth, AuthProvider } from "capacitor-auth-manager";
 import { environment } from "../../../environments/environment";
 import { AuthResponse, AuthService } from "./auth.service";
+
+interface KonekAppSigningPlugin {
+  /** Android-only: package name plus the SHA-1/SHA-256 fingerprints of this build. */
+  getInfo(): Promise<{
+    packageName: string;
+    sha1: string[];
+    sha256: string[];
+  }>;
+}
+
+const KonekAppSigning =
+  registerPlugin<KonekAppSigningPlugin>("KonekAppSigning");
 
 /**
  * Google Sign-In for Konek.
@@ -28,6 +40,26 @@ export class GoogleAuthService {
   /** True when running inside the Android/iOS app shell. */
   isNativePlatform(): boolean {
     return Capacitor.isNativePlatform();
+  }
+
+  /**
+   * Android: the values the Android OAuth client in Google Cloud Console must
+   * carry for Credential Manager to return accounts (package + SHA-1).
+   * Returns null on other platforms or if the native plugin is unavailable.
+   */
+  async signingDiagnostics(): Promise<{
+    packageName: string;
+    sha1: string[];
+    sha256: string[];
+  } | null> {
+    if (Capacitor.getPlatform() !== "android") return null;
+
+    try {
+      return await KonekAppSigning.getInfo();
+    } catch (error) {
+      console.error("Could not read the app signing certificate:", error);
+      return null;
+    }
   }
 
   /** Open the Google account chooser on a device and return the ID token. */

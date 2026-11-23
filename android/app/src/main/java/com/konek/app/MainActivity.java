@@ -11,6 +11,7 @@ public class MainActivity extends BridgeActivity {
         // Registered before the bridge is created so the JS side can call it
         // as soon as the app boots.
         registerPlugin(KonekBackgroundTrackerPlugin.class);
+        registerPlugin(KonekAppSigningPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
